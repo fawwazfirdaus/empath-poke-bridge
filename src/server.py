@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import re
 from typing import Optional, Dict, Any
 import httpx
 from fastmcp import FastMCP
@@ -32,9 +33,36 @@ def create_empath_journal_entry(
         "Accept": "application/json",
     }
 
+    # Minimal client-side validation
+    normalized_text = (text_journal or "").strip()
+    normalized_phone = (user_phone_number or "").strip()
+    validation_errors: Dict[str, str] = {}
+
+    if not normalized_text:
+        validation_errors["text_journal"] = "Must be non-empty after trimming."
+
+    # Strict E.164: + followed by 2-15 digits, first digit non-zero
+    if not re.fullmatch(r"\+[1-9]\d{1,14}", normalized_phone):
+        validation_errors["user_phone_number"] = "Must be E.164, e.g., +15551234567."
+
+    if validation_errors:
+        return {
+            "ok": False,
+            "status_code": 400,
+            "url": endpoint,
+            "request_payload": {
+                "textJournal": normalized_text,
+                "userPhoneNumber": normalized_phone,
+            },
+            "response": {
+                "message": "Invalid input",
+                "errors": validation_errors,
+            },
+        }
+
     payload: Dict[str, Any] = {
-        "textJournal": text_journal,
-        "userPhoneNumber": user_phone_number,
+        "textJournal": normalized_text,
+        "userPhoneNumber": normalized_phone,
     }
 
     timeout_seconds = float(os.environ.get("EMPATH_TIMEOUT", "15"))

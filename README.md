@@ -87,3 +87,24 @@ Example invocation via MCP Inspector (Tool -> run tool):
   "user_phone_number": "+15551234567"
 }
 ```
+
+Validation performed client-side before calling Empath:
+
+- `text_journal`: must be non-empty after trimming whitespace
+- `user_phone_number`: must match E.164 format (`+` followed by 2–15 digits, first digit 1–9)
+
+If validation fails, the tool returns a 400-like structure without contacting Empath:
+
+```json
+{
+  "ok": false,
+  "status_code": 400,
+  "response": {
+    "message": "Invalid input",
+    "errors": {
+      "text_journal": "Must be non-empty after trimming.",
+      "user_phone_number": "Must be E.164, e.g., +15551234567."
+    }
+  }
+}
+```
