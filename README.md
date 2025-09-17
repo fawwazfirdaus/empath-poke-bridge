@@ -64,3 +64,26 @@ def calculate(x: float, y: float, operation: str) -> float:
         return x * y
     # ...
 ```
+
+### Empath Journal Tool
+
+The server includes a tool `create_empath_journal_entry` that POSTs to Empath's API `POST /api/journals/createTextEntryOrRegister`.
+
+Inputs:
+
+- `text_journal` (string): The journal text content
+- `user_phone_number` (string): User phone in E.164 format
+
+Environment variables:
+
+- `EMPATH_BASE_URL` (optional, default `https://app.empathdash.com`)
+- `EMPATH_TIMEOUT` (optional, seconds, default `15`)
+
+Example invocation via MCP Inspector (Tool -> run tool):
+
+```json
+{
+  "text_journal": "Had a productive day shipping the MCP tool.",
+  "user_phone_number": "+15551234567"
+}
+```
