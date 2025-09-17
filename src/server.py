@@ -9,10 +9,26 @@ mcp = FastMCP("Sample MCP Server")
 
 @mcp.tool(description="Greet a user by name with a welcome message from the MCP server")
 def greet(name: str) -> str:
+    """Return a friendly greeting.
+
+    Parameters:
+    - name: The user's display name.
+
+    Returns:
+    - A short greeting string.
+    """
     return f"Hello, {name}! Welcome to our Empath MCP server running on Render!"
 
 @mcp.tool(description="Get information about the MCP server including name, version, environment, and Python version")
 def get_server_info() -> dict:
+    """Return basic server info for diagnostics.
+
+    Returns a dictionary with:
+    - server_name: Human-readable name of this server
+    - version: Semantic version string
+    - environment: Deployment environment (from ENVIRONMENT)
+    - python_version: Active Python version
+    """
     return {
         "server_name": "Empath MCP Server",
         "version": "1.0.0",
@@ -25,6 +41,24 @@ def create_empath_journal_entry(
     text_journal: str,
     user_phone_number: str,
 ) -> Dict[str, Any]:
+    """Create a text journal entry via Empath API.
+
+    Parameters:
+    - text_journal: Freeform journal text (non-empty after trimming)
+    - user_phone_number: E.164 phone (e.g., +15551234567)
+
+    Validation performed client-side:
+    - text_journal must be non-empty after trim
+    - user_phone_number must match E.164 ("+" then 2–15 digits, first 1–9)
+
+    Returns a structured object with fields:
+    - ok (bool): whether the call succeeded
+    - status_code (int): HTTP-like status code
+    - url (str): target endpoint
+    - request_payload (dict): payload sent or would be sent
+    - response (dict|str): Empath JSON or text; on validation error, includes
+      { message: "Invalid input", errors: { field: reason } }
+    """
     base_url = os.environ.get("EMPATH_BASE_URL", "https://app.empathdash.com")
     endpoint = f"{base_url.rstrip('/')}/api/journals/createTextEntryOrRegister"
 
@@ -97,6 +131,75 @@ def create_empath_journal_entry(
             "url": endpoint,
             "request_payload": payload,
         }
+
+@mcp.tool(description="Describe available tools, parameters, validation rules, and examples")
+def get_empath_tools_help() -> Dict[str, Any]:
+    """Return a structured description of this server's tools and usage.
+
+    Useful for LLMs and UI clients to understand parameter names, constraints,
+    and example payloads without guessing.
+    """
+    base_url = os.environ.get("EMPATH_BASE_URL", "https://app.empathdash.com").rstrip("/")
+    return {
+        "server": {
+            "name": "Empath MCP Server",
+            "version": "1.0.0",
+            "base_url": base_url,
+        },
+        "tools": [
+            {
+                "name": "create_empath_journal_entry",
+                "description": "Create a text journal entry in Empath",
+                "endpoint": f"{base_url}/api/journals/createTextEntryOrRegister",
+                "method": "POST",
+                "parameters": [
+                    {
+                        "name": "text_journal",
+                        "type": "string",
+                        "required": True,
+                        "validation": "non-empty after trim",
+                        "maps_to": "textJournal",
+                        "example": "Had a productive day shipping the MCP tool.",
+                    },
+                    {
+                        "name": "user_phone_number",
+                        "type": "string",
+                        "required": True,
+                        "validation": "E.164 format: +15551234567",
+                        "maps_to": "userPhoneNumber",
+                        "example": "+15551234567",
+                    },
+                ],
+                "example_request": {
+                    "text_journal": "Had a productive day shipping the MCP tool.",
+                    "user_phone_number": "+15551234567",
+                },
+                "example_payload_to_empath": {
+                    "textJournal": "Had a productive day shipping the MCP tool.",
+                    "userPhoneNumber": "+15551234567",
+                },
+                "success_response_shape": {
+                    "message": "Text entry created",
+                    "journalId": "string",
+                    "newUser": "boolean",
+                    "subscriptionStatus": "string",
+                    "callsRemaining": "number",
+                    "mentions": "array",
+                },
+                "error_responses": {
+                    "400": {"message": "Invalid phone number format"},
+                    "402": {
+                        "message": "Free limit reached",
+                        "subscriptionStatus": "free",
+                        "limitReached": True,
+                        "callsRemaining": 0,
+                    },
+                    "404": {"message": "Client not found"},
+                    "500": {"message": "Error creating text entry", "error": "string"},
+                },
+            }
+        ],
+    }
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
